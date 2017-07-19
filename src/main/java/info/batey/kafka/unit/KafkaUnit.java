@@ -21,20 +21,20 @@ import kafka.consumer.ConsumerConfig;
 import kafka.consumer.ConsumerTimeoutException;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
-import kafka.javaapi.producer.Producer;
 import kafka.message.MessageAndMetadata;
 import kafka.producer.KeyedMessage;
-import kafka.producer.ProducerConfig;
 import kafka.serializer.StringDecoder;
-import kafka.serializer.StringEncoder;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
 import kafka.utils.VerifiableProperties;
 import kafka.utils.ZkUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.security.JaasUtils;
-
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.ComparisonFailure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,7 @@ public class KafkaUnit {
     private final String brokerString;
     private int zkPort;
     private int brokerPort;
-    private Producer<String, String> producer = null;
+    private KafkaProducer<String, String> producer = null;
     private Properties kafkaBrokerConfig = new Properties();
 
     public KafkaUnit() throws IOException {
@@ -172,7 +172,12 @@ public class KafkaUnit {
 
         // run
         LOGGER.info("Executing: CreateTopic " + Arrays.toString(arguments));
-        TopicCommand.createTopic(zkUtils, opts);
+        try {
+            TopicCommand.createTopic(zkUtils, opts);
+        } catch(TopicExistsException e) {
+            LOGGER.debug(e.getMessage());
+        }
+
     }
 
 
@@ -181,12 +186,23 @@ public class KafkaUnit {
         if (zookeeper != null) zookeeper.shutdown();
     }
 
+    @Deprecated
+    @SuppressWarnings("deprecation")
     public List<KeyedMessage<String, String>> readKeyedMessages(final String topicName, final int expectedMessages) throws TimeoutException {
         return readMessages(topicName, expectedMessages, new MessageExtractor<KeyedMessage<String, String>>() {
 
             @Override
             public KeyedMessage<String, String> extract(MessageAndMetadata<String, String> messageAndMetadata) {
                 return new KeyedMessage(topicName, messageAndMetadata.key(), messageAndMetadata.message());
+            }
+        });
+    }
+
+    public List<ConsumerRecord<String, String>> readConsumerRecords(final String topicName, final int expectedMessages) throws TimeoutException {
+        return readMessages(topicName, expectedMessages, new MessageExtractor<ConsumerRecord<String, String>>() {
+            @Override
+            public ConsumerRecord<String, String> extract(MessageAndMetadata<String, String> messageAndMetadata) {
+                return new ConsumerRecord<String, String>(topicName, messageAndMetadata.partition(), messageAndMetadata.offset(), messageAndMetadata.key(), messageAndMetadata.message());
             }
         });
     }
@@ -252,16 +268,35 @@ public class KafkaUnit {
     }
 
     @SafeVarargs
+    @Deprecated
+    @SuppressWarnings({"deprecation", "unchecked"})
     public final void sendMessages(KeyedMessage<String, String> message, KeyedMessage<String, String>... messages) {
+        List<ProducerRecord<String, String>> records = new ArrayList<>(messages.length);
+        for (KeyedMessage<String, String> m: messages) {
+            records.add(createProducerRecord(m));
+        }
+        sendRecords(createProducerRecord(message), records.toArray((ProducerRecord<String, String>[])new ProducerRecord[0]));
+    }
+
+    @Deprecated
+    @SuppressWarnings("deprecation")
+    private static <K, V> ProducerRecord<K, V> createProducerRecord(KeyedMessage<K, V> message) {
+        return new ProducerRecord<K, V>(message.topic(), message.key(), message.message());
+    }
+
+    @SafeVarargs
+    public final void sendRecords(ProducerRecord<String, String> message, ProducerRecord<String, String>... messages) {
         if (producer == null) {
             Properties props = new Properties();
-            props.put("serializer.class", StringEncoder.class.getName());
-            props.put("metadata.broker.list", brokerString);
-            ProducerConfig config = new ProducerConfig(props);
-            producer = new Producer<>(config);
+            props.put("bootstrap.servers", brokerString);
+            producer = new KafkaProducer<>(props,
+                    new StringSerializer(),
+                    new StringSerializer());
         }
         producer.send(message);
-        producer.send(Arrays.asList(messages));
+        for(ProducerRecord<String, String> m: messages) {
+            producer.send(m);
+        }
     }
 
     /**
