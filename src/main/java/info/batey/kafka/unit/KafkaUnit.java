@@ -267,6 +267,8 @@ public class KafkaUnit {
     /**
      * Set custom broker configuration.
      * See avaliable config keys in the kafka documentation: http://kafka.apache.org/documentation.html#brokerconfigs
+     * @param configKey the key to be placed into this property list.
+     * @param configValue the value corresponding to <tt>key</tt>.
      */
     public final void setKafkaBrokerConfig(String configKey, String configValue) {
         kafkaBrokerConfig.setProperty(configKey, configValue);
