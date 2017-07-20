@@ -65,12 +65,12 @@ uploadArchives {
             pom.project {
                 name 'Kafka Unit'
                 packaging 'jar'
-                url 'https://github.com/chbatey/kafka-unit'
+                url 'https://github.com/kjkurtz/kafka-unit'
                 description 'Unit testing for Kafka'
                 scm {
-                    connection 'scm:git@github.com:chbatey/kafka-unit.git'
-                    developerConnection 'scm:git@github.com:chbatey/kafka-unit.git'
-                    url 'https://github.com/chbatey/kafka-unit'
+                    connection 'scm:git@github.com:kjkurtz/kafka-unit.git'
+                    developerConnection 'scm:git@github.com:kjkurtz/kafka-unit.git'
+                    url 'https://github.com/kjkurtz/kafka-unit'
                 }
 
                 licenses {
@@ -85,6 +85,11 @@ uploadArchives {
                         id 'chbatey'
                         name 'Christopher Batey'
                         email 'christopher.batey@gmail.com'
+                    }
+                    developer {
+                        id 'kjkurtz'
+                        name 'Kyle Kurtz'
+                        email 'kjkurtz@gmail.com'
                     }
                 }
             }
