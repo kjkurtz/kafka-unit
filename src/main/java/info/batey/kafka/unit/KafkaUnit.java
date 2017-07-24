@@ -23,6 +23,7 @@ import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
 import kafka.message.MessageAndMetadata;
 import kafka.producer.KeyedMessage;
+import kafka.serializer.Decoder;
 import kafka.serializer.StringDecoder;
 import kafka.server.KafkaConfig;
 import kafka.server.KafkaServerStartable;
@@ -34,6 +35,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.errors.TopicExistsException;
 import org.apache.kafka.common.security.JaasUtils;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.ComparisonFailure;
 import org.slf4j.Logger;
@@ -57,7 +59,7 @@ public class KafkaUnit {
     private final String brokerString;
     private int zkPort;
     private int brokerPort;
-    private KafkaProducer<String, String> producer = null;
+    private KafkaProducer<String, byte[]> producer = null;
     private Properties kafkaBrokerConfig = new Properties();
 
     public KafkaUnit() throws IOException {
@@ -188,38 +190,38 @@ public class KafkaUnit {
 
     @Deprecated
     @SuppressWarnings("deprecation")
-    public List<KeyedMessage<String, String>> readKeyedMessages(final String topicName, final int expectedMessages) throws TimeoutException {
-        return readMessages(topicName, expectedMessages, new MessageExtractor<KeyedMessage<String, String>>() {
+    public List<KeyedMessage<String, byte[]>> readKeyedMessages(final String topicName, final int expectedMessages) throws TimeoutException {
+        return readMessages(topicName, expectedMessages, new MessageExtractor<KeyedMessage<String, byte[]>>() {
 
             @Override
-            public KeyedMessage<String, String> extract(MessageAndMetadata<String, String> messageAndMetadata) {
-                return new KeyedMessage(topicName, messageAndMetadata.key(), messageAndMetadata.message());
+            public KeyedMessage<String, byte[]> extract(MessageAndMetadata<String, byte[]> messageAndMetadata) {
+                return new KeyedMessage<String, byte[]>(topicName, messageAndMetadata.key(), messageAndMetadata.message());
             }
         });
     }
 
-    public List<ConsumerRecord<String, String>> readConsumerRecords(final String topicName, final int expectedMessages) throws TimeoutException {
-        return readMessages(topicName, expectedMessages, new MessageExtractor<ConsumerRecord<String, String>>() {
+    public List<ConsumerRecord<String, byte[]>> readConsumerRecords(final String topicName, final int expectedMessages) throws TimeoutException {
+        return readMessages(topicName, expectedMessages, new MessageExtractor<ConsumerRecord<String, byte[]>>() {
             @Override
-            public ConsumerRecord<String, String> extract(MessageAndMetadata<String, String> messageAndMetadata) {
-                return new ConsumerRecord<String, String>(topicName, messageAndMetadata.partition(), messageAndMetadata.offset(), messageAndMetadata.key(), messageAndMetadata.message());
+            public ConsumerRecord<String, byte[]> extract(MessageAndMetadata<String, byte[]> messageAndMetadata) {
+                return new ConsumerRecord<String, byte[]>(topicName, messageAndMetadata.partition(), messageAndMetadata.offset(), messageAndMetadata.key(), messageAndMetadata.message());
             }
         });
     }
 
-    public List<String> pollMessages(String topicName) throws TimeoutException {
-        return readMessages(topicName, -1, new MessageExtractor<String>() {
+    public List<byte[]> pollMessages(String topicName) throws TimeoutException {
+        return readMessages(topicName, -1, new MessageExtractor<byte[]>() {
             @Override
-            public String extract(MessageAndMetadata<String, String> messageAndMetadata) {
+            public byte[] extract(MessageAndMetadata<String, byte[]> messageAndMetadata) {
                 return messageAndMetadata.message();
             }
         });
     }
 
-    public List<String> readMessages(String topicName, final int expectedMessages) throws TimeoutException {
-        return readMessages(topicName, expectedMessages, new MessageExtractor<String>() {
+    public List<byte[]> readMessages(String topicName, final int expectedMessages) throws TimeoutException {
+        return readMessages(topicName, expectedMessages, new MessageExtractor<byte[]>() {
             @Override
-            public String extract(MessageAndMetadata<String, String> messageAndMetadata) {
+            public byte[] extract(MessageAndMetadata<String, byte[]> messageAndMetadata) {
                 return messageAndMetadata.message();
             }
         });
@@ -238,16 +240,16 @@ public class KafkaUnit {
         StringDecoder stringDecoder = new StringDecoder(new VerifiableProperties(new Properties()));
         Map<String, Integer> topicMap = new HashMap<>();
         topicMap.put(topicName, 1);
-        Map<String, List<KafkaStream<String, String>>> events = javaConsumerConnector.createMessageStreams(topicMap, stringDecoder, stringDecoder);
-        List<KafkaStream<String, String>> events1 = events.get(topicName);
-        final KafkaStream<String, String> kafkaStreams = events1.get(0);
+        Map<String, List<KafkaStream<String, byte[]>>> events = javaConsumerConnector.createMessageStreams(topicMap, stringDecoder, new ByteArrayDecoder());
+        List<KafkaStream<String, byte[]>> events1 = events.get(topicName);
+        final KafkaStream<String, byte[]> kafkaStreams = events1.get(0);
 
 
         Future<List<T>> submit = singleThread.submit(new Callable<List<T>>() {
             public List<T> call() throws Exception {
                 List<T> messages = new ArrayList<>();
                 try {
-                    for (MessageAndMetadata<String, String> kafkaStream : kafkaStreams) {
+                    for (MessageAndMetadata<String, byte[]> kafkaStream : kafkaStreams) {
                         T message = messageExtractor.extract(kafkaStream);
                         LOGGER.info("Received message: {}", kafkaStream.message());
                         messages.add(message);
@@ -279,12 +281,12 @@ public class KafkaUnit {
     @SafeVarargs
     @Deprecated
     @SuppressWarnings({"deprecation", "unchecked"})
-    public final void sendMessages(KeyedMessage<String, String> message, KeyedMessage<String, String>... messages) {
-        List<ProducerRecord<String, String>> records = new ArrayList<>(messages.length);
-        for (KeyedMessage<String, String> m: messages) {
+    public final void sendMessages(KeyedMessage<String, byte[]> message, KeyedMessage<String, byte[]>... messages) {
+        List<ProducerRecord<String, byte[]>> records = new ArrayList<>(messages.length);
+        for (KeyedMessage<String, byte[]> m: messages) {
             records.add(createProducerRecord(m));
         }
-        sendRecords(createProducerRecord(message), records.toArray((ProducerRecord<String, String>[])new ProducerRecord[0]));
+        sendRecords(createProducerRecord(message), records.toArray((ProducerRecord<String, byte[]>[])new ProducerRecord[0]));
     }
 
     @Deprecated
@@ -294,16 +296,16 @@ public class KafkaUnit {
     }
 
     @SafeVarargs
-    public final void sendRecords(ProducerRecord<String, String> message, ProducerRecord<String, String>... messages) {
+    public final void sendRecords(ProducerRecord<String, byte[]> message, ProducerRecord<String, byte[]>... messages) {
         if (producer == null) {
             Properties props = new Properties();
             props.put("bootstrap.servers", brokerString);
-            producer = new KafkaProducer<>(props,
-                    new StringSerializer(),
-                    new StringSerializer());
+            props.put("key.serializer", new StringSerializer());
+            props.put("value.serializer", new ByteArraySerializer());
+            producer = new KafkaProducer<>(props, new StringSerializer(), new ByteArraySerializer());
         }
         producer.send(message);
-        for(ProducerRecord<String, String> m: messages) {
+        for(ProducerRecord<String, byte[]> m: messages) {
             producer.send(m);
         }
     }
@@ -319,7 +321,7 @@ public class KafkaUnit {
     }
 
     private interface MessageExtractor<T> {
-        T extract(MessageAndMetadata<String, String> messageAndMetadata);
+        T extract(MessageAndMetadata<String, byte[]> messageAndMetadata);
     }
 }
 

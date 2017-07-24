@@ -67,7 +67,7 @@ public class KafkaIntegrationTest {
         //given
         String testTopic = "TestTopic";
         kafkaUnitServer.createTopic(testTopic);
-        ProducerRecord<String, String> producerRecord = new ProducerRecord<>(testTopic, "key", "value");
+        ProducerRecord<String, byte[]> producerRecord = new ProducerRecord<String, byte[]>(testTopic, "key", "value".getBytes());
 
         //when
         kafkaUnitServer.sendRecords(producerRecord);
@@ -101,7 +101,7 @@ public class KafkaIntegrationTest {
         Producer<Long, String> producer = new KafkaProducer<>(props);
         ProducerRecord<Long, String> record = new ProducerRecord<>(topic, 1L, "test");
         producer.send(record);      // would be good to have KafkaUnit.sendMessages() support the new producer
-        assertEquals("test", kafkaUnitServer.readMessages(topic, 1).get(0));
+        assertArrayEquals("test".getBytes(), kafkaUnitServer.readMessages(topic, 1).get(0));
     }
 
     @Test
@@ -109,14 +109,14 @@ public class KafkaIntegrationTest {
         //given
         String testTopic = "TestTopic";
         kafkaUnitServer.createTopic(testTopic);
-        ProducerRecord<String, String> producerRecord = new ProducerRecord<>(testTopic, "key", "value");
+        ProducerRecord<String, byte[]> producerRecord = new ProducerRecord<String, byte[]>(testTopic, "key", "value".getBytes());
 
         //when
         kafkaUnitServer.sendRecords(producerRecord);
 
-        ConsumerRecord<String, String> receivedConsumerRecord = kafkaUnitServer.readConsumerRecords(testTopic, 1).get(0);
+        ConsumerRecord<String, byte[]> receivedConsumerRecord = kafkaUnitServer.readConsumerRecords(testTopic, 1).get(0);
 
-        assertEquals("Received message value is incorrect", "value", receivedConsumerRecord.value());
+        assertArrayEquals("Received message value is incorrect", "value".getBytes(), receivedConsumerRecord.value());
         assertEquals("Received message key is incorrect", "key", receivedConsumerRecord.key());
         assertEquals("Received message topic is incorrect", testTopic, receivedConsumerRecord.topic());
     }
@@ -125,13 +125,13 @@ public class KafkaIntegrationTest {
         //given
         String testTopic = "TestTopic";
         server.createTopic(testTopic);
-        ProducerRecord<String, String> producerRecord = new ProducerRecord<>(testTopic, "key", "value");
+        ProducerRecord<String, byte[]> producerRecord = new ProducerRecord<String, byte[]>(testTopic, "key", "value".getBytes());
 
         //when
         server.sendRecords(producerRecord);
-        List<String> messages = server.readMessages(testTopic, 1);
+        List<byte[]> messages = server.readMessages(testTopic, 1);
 
         //then
-        assertEquals(Arrays.asList("value"), messages);
+        assertArrayEquals("value".getBytes(), messages.get(0));
     }
 }
