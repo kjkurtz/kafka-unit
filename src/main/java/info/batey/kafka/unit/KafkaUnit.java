@@ -218,6 +218,15 @@ public class KafkaUnit {
         });
     }
 
+    public List<ConsumerRecord<String, byte[]>> pollConsumerMessages(String topicName) throws TimeoutException {
+        return readMessages(topicName, -1, new MessageExtractor<ConsumerRecord<String, byte[]>>() {
+            @Override
+            public ConsumerRecord<String, byte[]> extract(MessageAndMetadata<String, byte[]> messageAndMetadata) {
+                return new ConsumerRecord<String, byte[]>(topicName, messageAndMetadata.partition(), messageAndMetadata.offset(), messageAndMetadata.key(), messageAndMetadata.message());
+            }
+        });
+    }
+
     public List<byte[]> readMessages(String topicName, final int expectedMessages) throws TimeoutException {
         return readMessages(topicName, expectedMessages, new MessageExtractor<byte[]>() {
             @Override
